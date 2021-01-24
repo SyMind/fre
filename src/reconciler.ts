@@ -24,8 +24,8 @@ export const render = (vnode: FreElement, node: Node, done?: () => void): void =
 }
 
 export const dispatchUpdate = (fiber?: IFiber) => {
-  if (fiber && !fiber.dirty) {
-    fiber.dirty = true
+  if (fiber && !fiber.lane) {
+    fiber.lane = true
     fiber.tag = OP.UPDATE
     scheduleWork(reconcileWork.bind(null, fiber), fiber.time)
   }
@@ -40,11 +40,10 @@ const reconcileWork = (WIP?: IFiber): boolean => {
 
 const reconcile = (WIP: IFiber): IFiber | undefined => {
   isFn(WIP.type) ? updateHook(WIP) : updateHost(WIP)
-  WIP.dirty = WIP.dirty ? false : 0
 
   if (WIP.child) return WIP.child
   while (WIP) {
-    if (!preCommit && WIP.dirty === false) {
+    if (!preCommit && (WIP.lane === false || !WIP.parent)) {
       preCommit = WIP
       WIP.sibling = null
       return null
@@ -63,6 +62,7 @@ const updateHook = <P = Attributes>(WIP: IFiber): void => {
   resetCursor()
   if (isStr(children)) children = createText(children as string)
   reconcileChildren(WIP, children)
+  WIP.lane = WIP.lane ? false : 0
 }
 
 const getParentNode = (WIP: IFiber): HTMLElement | undefined => {
@@ -178,6 +178,7 @@ function clone(a, b) {
   a.kids = b.kids
   a.hooks = b.hooks
   a.ref = b.ref
+  a.lane = b.lane
 }
 
 const getKey = (vdom) => (vdom == null ? vdom : vdom.key)
