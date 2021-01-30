@@ -62,7 +62,7 @@ const updateHook = <P = Attributes>(WIP: IFiber): void => {
   resetCursor()
   if (isStr(children)) children = createText(children as string)
   reconcileChildren(WIP, children)
-  WIP.lane = WIP.lane ? false : 0
+  WIP.lane = WIP.lane ? false : null
 }
 
 const getParentNode = (WIP: IFiber): HTMLElement | undefined => {
