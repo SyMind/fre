@@ -116,7 +116,6 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
       bTail--
     } else if (same(aCh[aHead], bCh[bTail])) {
       temp = bCh[bTail]
-      console.log(temp)
       clone(temp, aCh[aHead])
       temp.tag = OP.MOUNT | OP.SIBLING
       temp.after = aCh[aTail]
