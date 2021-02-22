@@ -153,64 +153,38 @@ function clone(a, b) {
   a.ref = b.ref
 }
 
-const getKey = (vdom) => (vdom == null ? vdom : vdom.key)
-const getType = (vdom) => (isFn(vdom.type) ? vdom.type.name : vdom.type)
-
 const commitWork = (commitment: IFiber): void => {
   console.log(commits)
   commits.forEach(commit)
   commitment.done?.()
 }
 
-const getChild = (WIP: IFiber): any => {
-  let fiber = WIP
-  while ((WIP = WIP.child)) {
-    if (!isFn(WIP.type)) {
-      WIP.tag |= fiber.tag
-      WIP.after = fiber.after
-      return WIP
-    }
-  }
-}
-
 const commit = (fiber: IFiber): void => {
-  let { type, tag, parentNode, node, ref, hooks, after } = fiber
+  let { type, tag, parentNode, node, ref, hooks } = fiber
+  if (tag & OP.REMOVE) {
+    while (isFn(fiber.type)) fiber = fiber.child
+    kidsRefer(fiber.kids)
+    refer(ref, null)
+    hooks && hooks.list.forEach(cleanup)
+    parentNode.removeChild(fiber.node)
+    return
+  }
   if (isFn(type)) {
-    const child = getChild(fiber)
-    if (fiber.tag & OP.REMOVE) {
-      commit(child)
-      hooks && hooks.list.forEach(cleanup)
-    } else if (hooks) {
+    if (hooks) {
       side(hooks.layout)
       schedule(() => side(hooks.effect))
     }
-    return
-  }
-  if (tag & OP.REMOVE) {
-    kidsRefer(fiber.kids)
-    parentNode.removeChild(fiber.node)
-    refer(ref, null)
     return
   }
   if (tag & OP.UPDATE) {
     updateElement(node, fiber.lastProps || {}, fiber.props)
   }
   if (tag & OP.INSERT) {
-    if (tag & OP.FRAGMENT) {
-      after =
-        tag & OP.SIBLING
-          ? after?.kids[after?.kids.length - 1].nextSibling
-          : after?.child.node
-    } else {
-      after = tag & OP.SIBLING ? after?.node?.nextSibling : after?.node
-    }
+    const point = fiber.insertPoint ? fiber.insertPoint.node : null
+    const after = point ? point.nextSibling : parentNode.firstChild
     parentNode.insertBefore(node, after)
   }
   refer(ref, node)
-}
-
-const same = (a, b) => {
-  return getKey(a) === getKey(b) && getType(a) === getType(b)
 }
 
 const arrayfy = (arr) => (!arr ? [] : isArr(arr) ? arr : [arr])
