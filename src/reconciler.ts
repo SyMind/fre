@@ -16,6 +16,7 @@ import { isArr, createText } from "./h"
 let currentFiber: IFiber
 let commitment = null
 let commits = []
+let deletions = []
 
 export const enum OP {
   UPDATE = 1 << 1,
@@ -108,30 +109,32 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     bHead = 0,
     aTail = aCh.length - 1,
     bTail = bCh.length - 1,
-    prev = null
+    prev = null,
+    map = null
 
-  const map = {}
-
-  while (aHead <= aTail) {
-    const b = bCh[aHead]
-    const a = aCh[aHead]
-    if (b && a.type === b.type) {
-      map[aHead] = a
-    } else {
-      a.op = OP.REMOVE
-      commits.push(a)
+  if (!map) {
+    map = {}
+    while (aHead <= aTail) {
+      const key = aCh[aHead].key
+      key && (map[key] = aHead)
+      aHead++
     }
-    aHead++
   }
 
   while (bHead <= bTail) {
     let c = bCh[bHead]
-    let a = map[bHead]
-    if (a) {
+    let a = aCh[bHead]
+    if (a?.type === c.type) {
       clone(c, a)
       c.tag = OP.UPDATE
+      const id = map[c.key]
+      if (id != null) {
+        c.tag = OP.INSERT
+        delete map[c.key]
+      }
     } else {
       c.tag = OP.INSERT
+      c.node = null
     }
     c.parent = WIP
     if (prev) {
@@ -142,6 +145,12 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     prev = c
     bHead++
   }
+
+  for (const k in map) {
+    const a = aCh[map[k]]
+    a.tag = OP.REMOVE
+    deletions.push(a)
+  }
 }
 
 function clone(a, b) {
@@ -150,17 +159,19 @@ function clone(a, b) {
   a.kids = b.kids
   a.hooks = b.hooks
   a.ref = b.ref
+  a.parentNode = b.parentNode
 }
 
 const commitWork = (commitment: IFiber): void => {
   commits.forEach(commit)
+  deletions.forEach(commit)
   commits = []
+  deletions = []
   commitment.done?.()
 }
 
 const commit = (fiber: IFiber): void => {
   let { type, tag, parentNode, node, ref, hooks } = fiber
-  console.log(fiber)
   if (tag & OP.REMOVE) {
     while (isFn(fiber.type)) fiber = fiber.child
     kidsRefer(fiber.kids)
@@ -177,6 +188,8 @@ const commit = (fiber: IFiber): void => {
   } else if (tag & OP.INSERT) {
     const point = fiber.insertPoint ? fiber.insertPoint.node : null
     const after = point ? point.nextSibling : parentNode.firstChild
+    if (after === node) return
+    if (after === null && node === parentNode.lastChild) return
     parentNode.insertBefore(node, after)
   }
   refer(ref, node)
