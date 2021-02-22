@@ -15,6 +15,7 @@ import { isArr, createText } from "./h"
 
 let currentFiber: IFiber
 let commitment = null
+let commits = []
 
 export const enum OP {
   UPDATE = 1 << 1,
@@ -56,7 +57,7 @@ const reconcileWork = (WIP?: IFiber): boolean => {
 
 const reconcile = (WIP: IFiber): IFiber | undefined => {
   isFn(WIP.type) ? updateHook(WIP) : updateHost(WIP)
-
+  commits.push(WIP)
   if (WIP.child) return WIP.child
   while (WIP) {
     if (!commitment.last && WIP.tag & OP.DIRTY) {
@@ -93,6 +94,10 @@ const updateHost = (WIP: IFiber): void => {
     if (WIP.type === "svg") WIP.tag |= OP.SVG
     WIP.node = createElement(WIP) as HTMLElementEx
   }
+  const p = WIP.parent || ({} as any)
+  WIP.insertPoint = p.last || null
+  p.last = WIP
+  WIP.last = null
   reconcileChildren(WIP, WIP.props.children)
 }
 
@@ -103,85 +108,40 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     bHead = 0,
     aTail = aCh.length - 1,
     bTail = bCh.length - 1,
-    map = null,
-    ch = Array(bCh.length),
-    next = WIP.sibling?.node ? WIP.sibling : null
+    prev = null
 
-  while (aHead <= aTail && bHead <= bTail) {
-    let c = null
-    if (aCh[aHead] == null) {
-      aHead++
-    } else if (aCh[aTail] == null) {
-      aTail--
-    } else if (same(aCh[aHead], bCh[bHead])) {
-      c = bCh[bHead]
-      clone(c, aCh[aHead])
-      c.tag = OP.UPDATE
-      ch[bHead] = c
-      aHead++
-      bHead++
-    } else if (same(aCh[aTail], bCh[bTail])) {
-      c = bCh[bTail]
-      clone(c, aCh[aTail])
-      c.tag = OP.UPDATE
-      ch[bTail] = c
-      aTail--
-      bTail--
-    } else {
-      if (!map) {
-        map = new Map()
-        let i = aHead
-        while (i < aTail) map.set(getKey(aCh[i]), i++)
-      }
-      const key = getKey(bCh[bHead])
-      if (map.has(key)) {
-        const oldKid = aCh[map.get(key)]
-        c = bCh[bHead]
-        clone(c, oldKid)
-        c.tag = OP.MOUNT
-        c.after = aCh[aHead]
-        ch[bHead] = c
-        aCh[map.get(key)] = null
-      } else {
-        c = bCh[bHead]
-        c.tag = OP.INSERT
-        c.node = null
-        c.after = aCh[aHead]
-      }
-      bHead++
-    }
-    commitment.next = c
-    commitment = c
-  }
-  const after = bTail <= bCh.length - 1 ? ch[bTail + 1] : next
-  while (bHead <= bTail) {
-    let c = bCh[bHead]
-    c.tag = OP.INSERT
-    c.after = after
-    c.node = null
-    commitment.next = c
-    commitment = c
-    bHead++
-  }
+  const map = {}
+
   while (aHead <= aTail) {
-    let oldFiber = aCh[aHead]
-    if (oldFiber) {
-      oldFiber.tag = OP.REMOVE
-      commitment.next = oldFiber
-      commitment = oldFiber
+    const b = bCh[bHead]
+    const a = aCh[aHead]
+    if (a && a.type === b.type) {
+      map[a.key] = aHead
+    } else {
+      a.op |= OP.REMOVE
+      commits.push(a)
     }
     aHead++
   }
-  for (var i = 0, prev = null; i < bCh.length; i++) {
-    const child = bCh[i]
-    child.parent = WIP
-    if (i > 0) {
-      prev.sibling = child
+
+  while (bHead <= bTail) {
+    let c = bCh[bHead]
+    let id = map[c.key]
+    if (id) {
+      let a = aCh[id]
+      clone(c, a)
+      a.tag |= OP.UPDATE
     } else {
-      if (WIP.tag & OP.SVG) child.tag |= OP.SVG
-      WIP.child = child
+      c.tag |= OP.INSERT
     }
-    prev = child
+    c.parent = WIP
+    if (prev) {
+      prev.sibling = c
+    } else {
+      WIP.child = c
+    }
+    prev = c
+    bHead++
   }
 }
 
@@ -197,21 +157,8 @@ const getKey = (vdom) => (vdom == null ? vdom : vdom.key)
 const getType = (vdom) => (isFn(vdom.type) ? vdom.type.name : vdom.type)
 
 const commitWork = (commitment: IFiber): void => {
-  let fiber = commitment
-  while (fiber) {
-    if (fiber.tag & OP.FRAGMENT) {
-      fiber.kids.forEach((kid) => {
-        kid.tag |= fiber.tag
-        kid.after = fiber.after
-        commit(kid)
-        kid.tag = 0
-      })
-    } else if (fiber.tag) {
-      commit(fiber)
-      fiber.tag = 0
-    }
-    fiber = fiber.next
-  }
+  console.log(commits)
+  commits.forEach(commit)
   commitment.done?.()
 }
 
