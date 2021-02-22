@@ -127,23 +127,6 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
       ch[bTail] = c
       aTail--
       bTail--
-    } else if (same(aCh[aHead], bCh[bTail])) {
-      c = bCh[bTail]
-      console.log(c)
-      clone(c, aCh[aHead])
-      c.tag = OP.MOUNT | OP.SIBLING
-      c.after = aCh[aTail]
-      ch[bTail] = c
-      aHead++
-      bTail--
-    } else if (same(aCh[aTail], bCh[bHead])) {
-      c = bCh[bHead]
-      clone(c, aCh[aTail])
-      c.tag = OP.MOUNT
-      c.after = aCh[aHead]
-      ch[bHead] = c
-      aTail--
-      bHead++
     } else {
       if (!map) {
         map = new Map()
