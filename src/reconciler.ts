@@ -113,12 +113,12 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
   const map = {}
 
   while (aHead <= aTail) {
-    const b = bCh[bHead]
+    const b = bCh[aHead]
     const a = aCh[aHead]
-    if (a && a.type === b.type) {
-      map[a.key] = aHead
+    if (b && a.type === b.type) {
+      map[aHead] = a
     } else {
-      a.op |= OP.REMOVE
+      a.op = OP.REMOVE
       commits.push(a)
     }
     aHead++
@@ -126,13 +126,12 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
 
   while (bHead <= bTail) {
     let c = bCh[bHead]
-    let id = map[c.key]
-    if (id) {
-      let a = aCh[id]
+    let a = map[bHead]
+    if (a) {
       clone(c, a)
-      a.tag |= OP.UPDATE
+      c.tag = OP.UPDATE
     } else {
-      c.tag |= OP.INSERT
+      c.tag = OP.INSERT
     }
     c.parent = WIP
     if (prev) {
@@ -154,32 +153,28 @@ function clone(a, b) {
 }
 
 const commitWork = (commitment: IFiber): void => {
-  console.log(commits)
   commits.forEach(commit)
+  commits = []
   commitment.done?.()
 }
 
 const commit = (fiber: IFiber): void => {
   let { type, tag, parentNode, node, ref, hooks } = fiber
+  console.log(fiber)
   if (tag & OP.REMOVE) {
     while (isFn(fiber.type)) fiber = fiber.child
     kidsRefer(fiber.kids)
-    refer(ref, null)
     hooks && hooks.list.forEach(cleanup)
     parentNode.removeChild(fiber.node)
-    return
-  }
-  if (isFn(type)) {
+  } else if (isFn(type)) {
     if (hooks) {
       side(hooks.layout)
       schedule(() => side(hooks.effect))
     }
     return
-  }
-  if (tag & OP.UPDATE) {
+  } else if (tag & OP.UPDATE) {
     updateElement(node, fiber.lastProps || {}, fiber.props)
-  }
-  if (tag & OP.INSERT) {
+  } else if (tag & OP.INSERT) {
     const point = fiber.insertPoint ? fiber.insertPoint.node : null
     const after = point ? point.nextSibling : parentNode.firstChild
     parentNode.insertBefore(node, after)
