@@ -15,6 +15,7 @@ import { isArr, createText } from "./h"
 
 let currentFiber: IFiber
 let commitment = null
+let commits = []
 
 export const enum OP {
   UPDATE = 1 << 1,
@@ -105,7 +106,8 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     bTail = bCh.length - 1,
     map = null,
     ch = Array(bCh.length),
-    next = WIP.sibling?.node ? WIP.sibling : null
+    next = WIP.sibling?.node ? WIP.sibling : null,
+    deletions = []
 
   while (aHead <= aTail && bHead <= bTail) {
     let c = null
@@ -150,8 +152,6 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
       }
       bHead++
     }
-    commitment.next = c
-    commitment = c
   }
   const after = bTail <= bCh.length - 1 ? ch[bTail + 1] : next
   while (bHead <= bTail) {
@@ -159,21 +159,19 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     c.tag = OP.INSERT
     c.after = after
     c.node = null
-    commitment.next = c
-    commitment = c
     bHead++
   }
   while (aHead <= aTail) {
     let oldFiber = aCh[aHead]
     if (oldFiber) {
       oldFiber.tag = OP.REMOVE
-      commitment.next = oldFiber
-      commitment = oldFiber
+      deletions.push(oldFiber)
     }
     aHead++
   }
   for (var i = 0, prev = null; i < bCh.length; i++) {
     const child = bCh[i]
+    commits.push(child)
     child.parent = WIP
     if (i > 0) {
       prev.sibling = child
@@ -183,6 +181,7 @@ const reconcileChildren = (WIP: any, children: FreNode): void => {
     }
     prev = child
   }
+  commits.push(...deletions)
 }
 
 function clone(a, b) {
@@ -197,21 +196,8 @@ const getKey = (vdom) => (vdom == null ? vdom : vdom.key)
 const getType = (vdom) => (isFn(vdom.type) ? vdom.type.name : vdom.type)
 
 const commitWork = (commitment: IFiber): void => {
-  let fiber = commitment
-  while (fiber) {
-    if (fiber.tag & OP.FRAGMENT) {
-      fiber.kids.forEach((kid) => {
-        kid.tag |= fiber.tag
-        kid.after = fiber.after
-        commit(kid)
-        kid.tag = 0
-      })
-    } else if (fiber.tag) {
-      commit(fiber)
-      fiber.tag = 0
-    }
-    fiber = fiber.next
-  }
+  commits.forEach(commit)
+  commits = []
   commitment.done?.()
 }
 
@@ -227,6 +213,7 @@ const getChild = (WIP: IFiber): any => {
 }
 
 const commit = (fiber: IFiber): void => {
+  if (!fiber) return
   let { type, tag, parentNode, node, ref, hooks, after } = fiber
   if (isFn(type)) {
     const child = getChild(fiber)
