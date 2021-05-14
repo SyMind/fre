@@ -1,5 +1,6 @@
 export { h, Fragment, h as createElement } from "./h"
 export { render } from "./reconciler"
+export { renderToString } from "./server"
 export {
   useState,
   useReducer,
