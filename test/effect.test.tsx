@@ -1,6 +1,12 @@
 /** @jsx h */
 import { h, useLayout } from '../src/index'
+import CurrentDispatcher from '../src/dispatcher/current';
+import ClientDispatcher from '../src/dispatcher/client';
 import { testUpdates } from './test-util'
+
+beforeAll(() => {
+  CurrentDispatcher.current = new ClientDispatcher()
+})
 
 test('useLayout(f, [x]) should run on changes to x', async () => {
   let effects = []
@@ -49,7 +55,6 @@ test('useLayout(f, [x]) should run on changes to x', async () => {
 })
 
 test('useEffect(f, []) should run only once', async () => {
-  console.log(456)
   let effects = []
 
   const effect = () => {
@@ -90,7 +95,6 @@ test('useEffect(f, []) should run only once', async () => {
 })
 
 test('useLayout(f) should run every time', async () => {
-  console.log(789)
   let effects = []
 
   const effect = value => {

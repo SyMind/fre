@@ -1,6 +1,12 @@
 /** @jsx h */
 import { h, useState } from '../src/index'
+import CurrentDispatcher from '../src/dispatcher/current';
+import ClientDispatcher from '../src/dispatcher/client';
 import { testUpdates } from './test-util'
+
+beforeAll(() => {
+  CurrentDispatcher.current = new ClientDispatcher()
+})
 
 test('batch updates', async () => {
   let updates = 0

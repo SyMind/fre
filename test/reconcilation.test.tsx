@@ -1,6 +1,12 @@
 /** @jsx h */
-import { h, useState } from '../src/index'
+import { h } from '../src/index'
+import CurrentDispatcher from '../src/dispatcher/current';
+import ClientDispatcher from '../src/dispatcher/client';
 import { testUpdates } from './test-util'
+
+beforeAll(() => {
+  CurrentDispatcher.current = new ClientDispatcher()
+})
 
 test('reorder and reuse elements during key-based reconciliation of child-nodes', async () => {
   const states = [

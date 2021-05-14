@@ -1,6 +1,12 @@
 /** @jsx h */
 import { h, useRef } from '../src/index'
+import CurrentDispatcher from '../src/dispatcher/current';
+import ClientDispatcher from '../src/dispatcher/client';
 import { testUpdates } from './test-util'
+
+beforeAll(() => {
+  CurrentDispatcher.current = new ClientDispatcher()
+})
 
 test('persist reference to any value', async () => {
   const Component = () => {

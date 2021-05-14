@@ -12,6 +12,8 @@ import { createElement, updateElement } from "./dom"
 import { resetCursor } from "./hook"
 import { scheduleWork, shouldYield, schedule } from "./scheduler"
 import { isArr, createText } from "./h"
+import CurrentDispatcher from './dispatcher/current'
+import ClientDispatcher from './dispatcher/client'
 
 let currentFiber: IFiber
 let finish = null
@@ -32,6 +34,8 @@ export const render = (
   node: Node,
   done?: () => void
 ): void => {
+  CurrentDispatcher.current = new ClientDispatcher()
+
   const rootFiber = {
     node,
     props: { children: vnode },

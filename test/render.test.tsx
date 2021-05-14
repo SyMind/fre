@@ -1,7 +1,13 @@
 /** @jsx h */
 /** @jsxFrag Fragment */
 import { h, Fragment } from '../src/index'
+import CurrentDispatcher from '../src/dispatcher/current';
+import ClientDispatcher from '../src/dispatcher/client';
 import { testRender } from './test-util'
+
+beforeAll(() => {
+  CurrentDispatcher.current = new ClientDispatcher()
+})
 
 const toString = (elements) => elements.map((child) => child.outerHTML).join('')
 
